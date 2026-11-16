@@ -1,0 +1,52 @@
+@startuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam sequenceMessageAlign left
+hide footbox
+title UC-03 Create Referral: createReferral
+
+participant "<u>:ReferralController</u>" as Ctrl
+participant "<u>:PatientCatalog</u>" as PC
+collections "<u>:Patient</u>" as Ps
+participant "<u>:ProfessionalCatalog</u>" as ProfC
+collections "<u>:MedicalProfessional</u>" as MPs
+participant "<u>:SpecialtyCatalog</u>" as SC
+collections "<u>:Specialty</u>" as Sps
+participant "<u>p:Patient</u>" as P
+collections "<u>:Referral</u>" as Rs
+
+[-> Ctrl : createReferral(patientId, requestedSpecialtyId,\nrequestedProfessionalId, clinicalReason, priority, details)
+Ctrl -> Ctrl : complete := validate(clinicalReason,\npriority, details)
+Ctrl -> PC : p := getPatient(patientId)
+PC -> Ps : p := find(patientId)
+Ps --> PC : p
+PC --> Ctrl : p
+Ctrl -> ProfC : referrer := getProfessional(currentUser.professionalId)
+ProfC -> MPs : referrer := find(professionalId)
+MPs --> ProfC : referrer
+ProfC --> Ctrl : referrer
+opt requestedProfessionalId given
+  Ctrl -> ProfC : reqProf := getProfessional(requestedProfessionalId)
+  ProfC -> MPs : reqProf := find(requestedProfessionalId)
+  MPs --> ProfC : reqProf
+  ProfC --> Ctrl : reqProf
+end
+opt requestedSpecialtyId given
+  Ctrl -> SC : reqSpec := getSpecialty(requestedSpecialtyId)
+  SC -> Sps : reqSpec := find(requestedSpecialtyId)
+  Sps --> SC : reqSpec
+  SC --> Ctrl : reqSpec
+end
+alt complete and p != null
+  Ctrl -> P : r := makeReferral(referrer, reqProf, reqSpec,\nclinicalReason, priority, details)
+  create "<u>r:Referral</u>" as R
+  P -> R : create(referrer, reqProf, reqSpec,\nclinicalReason, priority, details)
+  P -> Rs : add(r)
+  P --> Ctrl : r
+  [<-- Ctrl : referralId
+else information missing or patient not found
+  Ctrl -> Ctrl : reject("required referral information is missing")
+  [<-- Ctrl : error
+end
+@enduml

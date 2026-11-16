@@ -1,0 +1,22 @@
+@startuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam sequenceMessageAlign left
+hide footbox
+title UC-01 Request / Book Appointment: confirmAppointment
+
+participant "<u>:AppointmentController</u>" as Ctrl
+participant "<u>:AppointmentBook</u>" as AB
+participant "<u>s:AvailabilitySlot</u>" as S
+collections "<u>:Appointment</u>" as As
+
+[-> Ctrl : confirmAppointment(patientId, professionalId,\nslotId, reason)
+Ctrl -> AB : a := makeAppointment(p, mp, s, reason)
+create "<u>a:Appointment</u>" as Ap
+AB -> Ap : create(p, mp, s, reason)
+AB -> S : markUnavailable()
+AB -> As : add(a)
+AB --> Ctrl : a
+[<-- Ctrl : appointmentId
+@enduml

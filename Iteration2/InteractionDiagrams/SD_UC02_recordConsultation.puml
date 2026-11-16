@@ -1,0 +1,42 @@
+@startuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam sequenceMessageAlign left
+hide footbox
+title UC-02 Record Consultation: recordConsultation
+
+participant "<u>:ConsultationController</u>" as Ctrl
+participant "<u>:AppointmentBook</u>" as AB
+collections "<u>:Appointment</u>" as As
+participant "<u>:ProfessionalCatalog</u>" as ProfC
+collections "<u>:MedicalProfessional</u>" as MPs
+participant "<u>a:Appointment</u>" as Ap
+participant "<u>p:Patient</u>" as P
+participant "<u>cr:ClinicalRecord</u>" as CR
+
+[-> Ctrl : recordConsultation(appointmentId, observations,\ndiagnosis, treatments, followUp)
+Ctrl -> AB : a := getAppointment(appointmentId)
+AB -> As : a := find(appointmentId)
+As --> AB : a
+AB --> Ctrl : a
+Ctrl -> Ap : valid := isValidForConsultation()
+Ap --> Ctrl : valid
+Ctrl -> Ctrl : complete := validate(observations,\ndiagnosis, treatments)
+Ctrl -> ProfC : mp := getProfessional(currentUser.professionalId)
+ProfC -> MPs : mp := find(professionalId)
+MPs --> ProfC : mp
+ProfC --> Ctrl : mp
+alt valid and complete
+  Ctrl -> Ap : c := makeConsultation(observations,\ndiagnosis, treatments, followUp, mp)
+  create "<u>c:Consultation</u>" as Co
+  Ap -> Co : create(observations, diagnosis,\ntreatments, followUp, mp)
+  Ap -> P : updateClinicalRecord(c)
+  P -> CR : addEntry(c)
+  Ap --> Ctrl : c
+  [<-- Ctrl : consultationId
+else not valid or information missing
+  Ctrl -> Ctrl : reject("required consultation information is missing")
+  [<-- Ctrl : error
+end
+@enduml
