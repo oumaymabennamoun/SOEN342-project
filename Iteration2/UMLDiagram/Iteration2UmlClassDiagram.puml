@@ -1,0 +1,362 @@
+@startuml Iteration2_ClassDiagram
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam shadowing false
+hide empty members
+
+' =====================  PRESENTATION  =====================
+class Terminal <<boundary>> {
+  + run()
+  - showAvailableSlots(slots : List<AvailabilitySlot>)
+  - showSlotSelected(slotId : int)
+  - showAppointmentConfirmation(appointmentId : int, details : String)
+  - showSavedConfirmation(consultationId : int)
+  - showReferralConfirmation(referralId : int)
+  - showError(message : String)
+  - requestNewSlot()
+  - requestCorrection()
+  - suggestAlternativeSlots(alternatives : List<AvailabilitySlot>)
+  - offerWaitlist()
+  - showWaitlistConfirmation(waitlistEntryId : int)
+  - showUpdatedWaitlist(entryId : int, newPriority : int)
+  - showCancellationConfirmation(appointmentId : int)
+  - showEligibleWaitlistedPatients(eligiblePatients : List<WaitlistEntry>)
+  - showNextEligiblePatient(candidate : WaitlistEntry)
+}
+
+' =====================  CONTROLLERS  =====================
+class AppointmentController <<controller>> {
+  - selectedProfessional : MedicalProfessional
+  - selectedSlot : AvailabilitySlot
+  + requestAppointment(patientId : int, professionalId : int, preferredTime : DateTime, reason : String) : List<AvailabilitySlot>
+  + requestAlternatives(professionalId : int, preferredTime : DateTime) : List<AvailabilitySlot>
+  + selectSlot(slotId : int) : boolean
+  + bookAppointment(patientId : int, professionalId : int, slotId : int, reason : String) : int
+  + cancelAppointment(appointmentId : int) : List<WaitlistEntry>
+}
+
+
+class AvailabilityController <<controller>> {
+  + searchAvailability(criteria : SearchCriteria) : List<AvailabilitySlot>
+  + makeAvailability(professionalId : int, startDate : Date, endDate : Date, pattern : RecurrencePattern, startTime : Time, endTime : Time) : int
+  + importFromCSV(filePath : String) : int
+  + exportToCSV(filePath : String) : void
+}
+
+class ConsultationController <<controller>> {
+  + recordConsultation(appointmentId : int, observations : String, diagnosis : String, treatments : String, followUp : String) : int
+  - validate(observations : String, diagnosis : String, treatments : String) : boolean
+}
+
+class ReferralController <<controller>> {
+  + createReferral(patientId : int, requestedSpecialtyId : int, requestedProfessionalId : int, clinicalReason : String, priority : String, details : String) : int
+  - validate(clinicalReason : String, priority : String, details : String) : boolean
+}
+
+class WaitlistController <<controller>> {
+  + addToWaitlist(patientId : int, professionalId : int, specialtyId : int, dateFrom : Date, dateTo : Date) : int
+  + changeWaitlistPriority(entryId : int, newPriority : int) : void
+  + recordOfferResponse(entryId : int, slotId : int, accepted : boolean, removeFromWaitlist : boolean) : OfferResult
+}
+
+' =====================  CATALOGS / REGISTRIES  =====================
+class PatientCatalog {
+  - patients : Map<int, Patient>
+  + getPatient(patientId : int) : Patient
+  + search(query : String) : List<Patient>
+  + add(patient : Patient)
+}
+
+class MedicalProfessionalCatalog {
+  - professionals : Map<int, MedicalProfessional>
+  + getProfessional(professionalId : int) : MedicalProfessional
+  + findBySpecialty(specialty : String) : List<MedicalProfessional>
+  + findByName(first : String, last : String) : MedicalProfessional
+  + findSlot(slotId : int) : AvailabilitySlot
+  + add(professional : MedicalProfessional)
+}
+
+class SpecialtyCatalog {
+  - specialties : Map<int, Specialty>
+  + getSpecialty(specialtyId : int) : Specialty
+  + add(specialty : Specialty)
+}
+
+class AppointmentCatalog {
+  - appointments : Map<int, Appointment>
+  + makeAppointment(patient : Patient, professional : MedicalProfessional, slot : AvailabilitySlot, reason : String) : Appointment
+  + getAppointment(appointmentId : int) : Appointment
+  + getAppointmentsFor(patient : Patient) : List<Appointment>
+  + cancel(appointmentId : int)
+}
+
+class WaitlistCatalog {
+  - entries : Map<int, WaitlistEntry>
+  + add(entry : WaitlistEntry) : int
+  + getEntry(entryId : int) : WaitlistEntry
+  + findEligible(slot : AvailabilitySlot, professional : MedicalProfessional) : List<WaitlistEntry>
+  + remove(entryId : int)
+}
+
+' =====================  CSV (Import / Export)  =====================
+interface AvailabilityImporter <<interface>> {
+  + importFrom(filePath : String, professionalCatalog : MedicalProfessionalCatalog) : int
+}
+
+interface AvailabilityExporter <<interface>> {
+  + exportTo(filePath : String, professionalCatalog : MedicalProfessionalCatalog) : void
+}
+
+class AvailabilityCsvImporter {
+  + importFrom(filePath : String, professionalCatalog : MedicalProfessionalCatalog) : int
+  - parseLine(line : String) : AvailabilitySlot
+}
+
+class AvailabilityCsvExporter {
+  + exportTo(filePath : String, professionalCatalog : MedicalProfessionalCatalog) : void
+  - toLine(slot : AvailabilitySlot) : String
+}
+
+' =====================  DOMAIN  =====================
+class Patient {
+  - patientId : int
+  - firstName : String
+  - lastName : String
+  - dateOfBirth : Date [0..1]
+  - phone : String
+  - address : String [0..1]
+  - ramqNumber : String [0..1]
+  + hasValidReferral(specialty : Specialty) : boolean
+  + makeReferral(referrer : MedicalProfessional, requestedProfessional : MedicalProfessional, requestedSpecialty : Specialty, clinicalReason : String, priority : String, details : String) : Referral
+  + addReferral(referral : Referral)
+  + updateClinicalRecord(consultation : Consultation)
+}
+
+class Insurance {
+  - insuranceId : int
+  - insuranceNumber : String
+  - type : String
+  - provider : String
+}
+
+
+class ClinicalRecord {
+  - recordId : int
+  - recordType : String
+  - content : String
+  - createdAt : DateTime
+  + addEntry(consultation : Consultation)
+}
+
+
+
+class Consultation {
+  - consultationId : int
+  - dateTime : DateTime
+  - observations : String
+  - diagnosis : String
+  - treatments : String
+  - followUp : String
+}
+
+class MedicalProfessional {
+  - professionalId : int
+  - firstName : String
+  - lastName : String
+  - title : String
+  - phone : String
+  - licenseNumber : String
+  + getSpecialty() : Specialty
+  + getSlot(slotId : int) : AvailabilitySlot
+  + getAvailableSlots(preferredTime : DateTime) : List<AvailabilitySlot>
+  + getNextAvailableSlots(preferredTime : DateTime) : List<AvailabilitySlot>
+  + makeAvailability(pattern : RecurrencePattern, startDate : Date, endDate : Date, startTime : Time, endTime : Time) : int
+  + addSlot(slot : AvailabilitySlot) : boolean
+  + hasOverlap(slot : AvailabilitySlot) : boolean
+}
+
+class Specialty {
+  - specialtyId : int
+  - name : String
+  - referralRequired : boolean
+  + requiresReferral() : boolean
+}
+
+class AvailabilitySlot {
+  - slotId : int
+  - date : Date
+  - startTime : Time
+  - endTime : Time
+  - status : AvailabilityStatus
+  + isAvailable() : boolean
+  + isAvailableOn(preferredTime : DateTime) : boolean
+  + overlaps(other : AvailabilitySlot) : boolean
+  + markUnavailable()
+  + markAvailable()
+}
+
+class Appointment {
+  - appointmentId : int
+  - dateTime : DateTime
+  - status : AppointmentStatus
+  - reason : String
+  + confirm()
+  + cancel()
+  + isValidForConsultation() : boolean
+  + makeConsultation(observations : String, diagnosis : String, treatments : String, followUp : String, professional : MedicalProfessional) : Consultation
+}
+
+class Referral {
+  - referralId : int
+  - type : String
+  - description : String
+  - clinicalReason : String
+  - priority : String
+  - status : String
+  - createdAt : DateTime
+}
+
+class RecurrencePattern {
+  - type : RepeatType
+  - daysOfWeek : Set<DayOfWeek>
+  - dayOfMonth : int
+  + generateDates(startDate : Date, endDate : Date) : List<Date>
+}
+
+class SearchCriteria {
+  - professionalName : String
+  - specialty : String
+  - startDate : Date
+  - endDate : Date
+  - startTime : Time
+  - endTime : Time
+}
+
+
+class WaitlistEntry {
+  - entryId : int
+  - requestDate : Date
+  - priority : int
+  - status : WaitlistStatus
+  - startDate : Date
+  - endDate : Date
+  + changePriority(newPriority : int)
+  + matches(slot : AvailabilitySlot) : boolean
+  + makeOffer(slot : AvailabilitySlot) : WaitlistOffer
+  + markOffered()
+  + markBooked()
+  + remove()
+}
+
+
+class WaitlistOffer {
+  - offerId : int
+  - offerDate : DateTime
+  - outcome : OfferOutcome
+  + accept()
+  + decline()
+  + isPending() : boolean
+}
+
+
+class OfferResult <<dto>> {
+  - appointmentId : int [0..1]
+  - nextCandidate : WaitlistEntry [0..1]
+}
+
+
+class Resource <<stub>> {
+  - resourceId : int
+  - name : String
+  - type : ResourceType
+  + isAvailable(slot : AvailabilitySlot) : boolean
+}
+
+class ResourceAllocation <<stub>> {
+  - quantity : int
+}
+
+' =====================  RELATIONSHIPS  =====================
+Terminal --> AppointmentController
+Terminal --> AvailabilityController
+Terminal --> ConsultationController
+Terminal --> ReferralController
+Terminal --> WaitlistController
+
+AppointmentController --> PatientCatalog
+AppointmentController --> MedicalProfessionalCatalog
+AppointmentController --> AppointmentCatalog
+AppointmentController --> WaitlistCatalog
+
+AvailabilityController --> MedicalProfessionalCatalog
+AvailabilityController --> AvailabilityImporter
+AvailabilityController --> AvailabilityExporter
+AvailabilityController ..> RecurrencePattern
+AvailabilityController ..> SearchCriteria
+
+ConsultationController --> AppointmentCatalog
+ConsultationController --> MedicalProfessionalCatalog
+
+ReferralController --> PatientCatalog
+ReferralController --> MedicalProfessionalCatalog
+ReferralController --> SpecialtyCatalog
+
+WaitlistController --> WaitlistCatalog
+WaitlistController --> PatientCatalog
+WaitlistController --> MedicalProfessionalCatalog
+WaitlistController --> SpecialtyCatalog
+WaitlistController --> AppointmentCatalog
+WaitlistController ..> OfferResult
+
+AvailabilityImporter <|.. AvailabilityCsvImporter
+AvailabilityExporter <|.. AvailabilityCsvExporter
+AvailabilityCsvImporter ..> MedicalProfessionalCatalog
+AvailabilityCsvExporter ..> MedicalProfessionalCatalog
+
+PatientCatalog o-- "0..*" Patient
+MedicalProfessionalCatalog o-- "0..*" MedicalProfessional
+SpecialtyCatalog o-- "0..*" Specialty
+AppointmentCatalog o-- "0..*" Appointment
+WaitlistCatalog o-- "0..*" WaitlistEntry
+
+MedicalProfessional "1" *-- "0..*" AvailabilitySlot
+MedicalProfessional "0..*" --> "1" Specialty
+MedicalProfessional ..> RecurrencePattern
+
+Patient "1" o-- "0..*" Referral
+Patient "1" --> "0..*" Insurance
+Patient "1" *-- "1" ClinicalRecord
+ClinicalRecord "1" o-- "0..*" Consultation
+Appointment "1" --> "0..1" Consultation
+Consultation "0..*" --> "1" MedicalProfessional
+
+Referral "0..*" --> "0..1" Specialty : requestedSpecialty
+Referral "0..*" --> "0..1" MedicalProfessional : requestedProfessional
+Referral "0..*" --> "1" MedicalProfessional : referrer
+
+Appointment "0..*" --> "1" Patient
+Appointment "0..*" --> "1" MedicalProfessional
+Appointment "0..1" --> "1" AvailabilitySlot
+Appointment "1" --> "0..*" ResourceAllocation
+ResourceAllocation "0..*" --> "1" Resource
+
+WaitlistEntry "0..*" --> "1" Patient
+WaitlistEntry "0..*" --> "0..1" MedicalProfessional
+WaitlistEntry "0..*" --> "0..1" Specialty
+
+
+WaitlistEntry "1" *-- "0..*" WaitlistOffer
+WaitlistOffer "0..*" --> "1" AvailabilitySlot
+
+OfferResult "1" --> "0..1" WaitlistEntry
+
+' ---- Enum usage ----
+AvailabilitySlot ..> AvailabilityStatus
+Appointment ..> AppointmentStatus
+WaitlistEntry ..> WaitlistStatus
+WaitlistOffer ..> OfferOutcome
+RecurrencePattern ..> RepeatType
+RecurrencePattern ..> DayOfWeek
+Resource ..> ResourceType
+
+@enduml
