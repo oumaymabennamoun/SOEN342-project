@@ -9,12 +9,13 @@ title UC-03 Create Referral: createReferral
 participant "<u>:ReferralController</u>" as Ctrl
 participant "<u>:PatientCatalog</u>" as PC
 collections "<u>:Patient</u>" as Ps
-participant "<u>:ProfessionalCatalog</u>" as ProfC
+participant "<u>:MedicalProfessionalCatalog</u>" as ProfC
 collections "<u>:MedicalProfessional</u>" as MPs
 participant "<u>:SpecialtyCatalog</u>" as SC
 collections "<u>:Specialty</u>" as Sps
 participant "<u>p:Patient</u>" as P
-collections "<u>:Referral</u>" as Rs
+
+note over Ctrl : currentProfessionalId is set by\nsetCurrentProfessional(professionalId)
 
 [-> Ctrl : createReferral(patientId, requestedSpecialtyId,\nrequestedProfessionalId, clinicalReason, priority, details)
 Ctrl -> Ctrl : complete := validate(clinicalReason,\npriority, details)
@@ -22,8 +23,8 @@ Ctrl -> PC : p := getPatient(patientId)
 PC -> Ps : p := find(patientId)
 Ps --> PC : p
 PC --> Ctrl : p
-Ctrl -> ProfC : referrer := getProfessional(currentUser.professionalId)
-ProfC -> MPs : referrer := find(professionalId)
+Ctrl -> ProfC : referrer := getProfessional(currentProfessionalId)
+ProfC -> MPs : referrer := find(currentProfessionalId)
 MPs --> ProfC : referrer
 ProfC --> Ctrl : referrer
 opt requestedProfessionalId given
@@ -38,15 +39,16 @@ opt requestedSpecialtyId given
   Sps --> SC : reqSpec
   SC --> Ctrl : reqSpec
 end
-alt complete and p != null
+alt complete and p != null and (reqProf != null or reqSpec != null)
   Ctrl -> P : r := makeReferral(referrer, reqProf, reqSpec,\nclinicalReason, priority, details)
   create "<u>r:Referral</u>" as R
   P -> R : create(referrer, reqProf, reqSpec,\nclinicalReason, priority, details)
-  P -> Rs : add(r)
+  P -> P : addReferral(r)
   P --> Ctrl : r
   [<-- Ctrl : referralId
-else information missing or patient not found
-  Ctrl -> Ctrl : reject("required referral information is missing")
-  [<-- Ctrl : error
+else patient not found
+  [<-- Ctrl : <<exception>> Patient not found
+else required information missing or invalid
+  [<-- Ctrl : <<exception>> Required referral information is missing or invalid
 end
 @enduml

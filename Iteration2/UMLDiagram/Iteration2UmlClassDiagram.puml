@@ -31,8 +31,12 @@ class AppointmentController <<controller>> {
   + requestAppointment(patientId : int, professionalId : int, preferredTime : DateTime, reason : String) : List<AvailabilitySlot>
   + requestAlternatives(professionalId : int, preferredTime : DateTime) : List<AvailabilitySlot>
   + selectSlot(slotId : int) : boolean
-  + bookAppointment(patientId : int, professionalId : int, slotId : int, reason : String) : int
+  + confirmAppointment(patientId : int, professionalId : int, slotId : int, reason : String) : int
   + cancelAppointment(appointmentId : int) : List<WaitlistEntry>
+  + getAppointment(appointmentId : int) : Appointment
+  + listProfessionals() : List<MedicalProfessional>
+  + findPatients(query : String) : List<Patient>
+  + registerPatient(firstName : String, lastName : String, phone : String, ramqNumber : String) : int
 }
 
 
@@ -40,21 +44,28 @@ class AvailabilityController <<controller>> {
   + searchAvailability(criteria : SearchCriteria) : List<AvailabilitySlot>
   + makeAvailability(professionalId : int, startDate : Date, endDate : Date, pattern : RecurrencePattern, startTime : Time, endTime : Time) : int
   + importFromCSV(filePath : String) : int
-  + exportToCSV(filePath : String) : void
+  + exportToCSV(filePath : String) : int
+  + listProfessionals() : List<MedicalProfessional>
 }
 
 class ConsultationController <<controller>> {
+  - currentProfessionalId : int
+  + setCurrentProfessional(professionalId : int)
   + recordConsultation(appointmentId : int, observations : String, diagnosis : String, treatments : String, followUp : String) : int
   - validate(observations : String, diagnosis : String, treatments : String) : boolean
 }
 
 class ReferralController <<controller>> {
-  + createReferral(patientId : int, requestedSpecialtyId : int, requestedProfessionalId : int, clinicalReason : String, priority : String, details : String) : int
+  + {static} PRIORITIES : List<String>
+  - currentProfessionalId : int
+  + setCurrentProfessional(professionalId : int)
+  + createReferral(patientId : int, requestedSpecialtyId : int [0..1], requestedProfessionalId : int [0..1], clinicalReason : String, priority : String, details : String) : int
+  + listSpecialties() : List<Specialty>
   - validate(clinicalReason : String, priority : String, details : String) : boolean
 }
 
 class WaitlistController <<controller>> {
-  + addToWaitlist(patientId : int, professionalId : int, specialtyId : int, dateFrom : Date, dateTo : Date) : int
+  + addToWaitlist(patientId : int, professionalId : int [0..1], specialtyId : int [0..1], dateFrom : Date, dateTo : Date) : int
   + changeWaitlistPriority(entryId : int, newPriority : int) : void
   + recordOfferResponse(entryId : int, slotId : int, accepted : boolean, removeFromWaitlist : boolean) : OfferResult
 }
@@ -73,12 +84,15 @@ class MedicalProfessionalCatalog {
   + findBySpecialty(specialty : String) : List<MedicalProfessional>
   + findByName(first : String, last : String) : MedicalProfessional
   + findSlot(slotId : int) : AvailabilitySlot
+  + getAll() : List<MedicalProfessional>
   + add(professional : MedicalProfessional)
 }
 
 class SpecialtyCatalog {
   - specialties : Map<int, Specialty>
   + getSpecialty(specialtyId : int) : Specialty
+  + findByName(name : String) : Specialty
+  + getAll() : List<Specialty>
   + add(specialty : Specialty)
 }
 
@@ -100,25 +114,27 @@ class WaitlistCatalog {
 
 ' =====================  CSV (Import / Export)  =====================
 interface AvailabilityImporter <<interface>> {
-  + importFrom(filePath : String, professionalCatalog : MedicalProfessionalCatalog) : int
+  + importFrom(filePath : String, professionalCatalog : MedicalProfessionalCatalog, specialtyCatalog : SpecialtyCatalog) : int
 }
 
 interface AvailabilityExporter <<interface>> {
-  + exportTo(filePath : String, professionalCatalog : MedicalProfessionalCatalog) : void
+  + exportTo(filePath : String, professionalCatalog : MedicalProfessionalCatalog) : int
 }
 
 class AvailabilityCsvImporter {
-  + importFrom(filePath : String, professionalCatalog : MedicalProfessionalCatalog) : int
-  - parseLine(line : String) : AvailabilitySlot
+  + importFrom(filePath : String, professionalCatalog : MedicalProfessionalCatalog, specialtyCatalog : SpecialtyCatalog) : int
+  - parseLine(line : String, lineNumber : int) : Row
+  - checkNoOverlaps(rows : List<Row>, catalog : MedicalProfessionalCatalog)
 }
 
 class AvailabilityCsvExporter {
-  + exportTo(filePath : String, professionalCatalog : MedicalProfessionalCatalog) : void
+  + exportTo(filePath : String, professionalCatalog : MedicalProfessionalCatalog) : int
   - toLine(slot : AvailabilitySlot) : String
 }
 
 ' =====================  DOMAIN  =====================
 class Patient {
+  - {static} nextId : int
   - patientId : int
   - firstName : String
   - lastName : String
@@ -130,9 +146,11 @@ class Patient {
   + makeReferral(referrer : MedicalProfessional, requestedProfessional : MedicalProfessional, requestedSpecialty : Specialty, clinicalReason : String, priority : String, details : String) : Referral
   + addReferral(referral : Referral)
   + updateClinicalRecord(consultation : Consultation)
+  + addInsurance(insurance : Insurance)
 }
 
 class Insurance {
+  - {static} nextId : int
   - insuranceId : int
   - insuranceNumber : String
   - type : String
@@ -141,6 +159,7 @@ class Insurance {
 
 
 class ClinicalRecord {
+  - {static} nextId : int
   - recordId : int
   - recordType : String
   - content : String
@@ -151,6 +170,7 @@ class ClinicalRecord {
 
 
 class Consultation {
+  - {static} nextId : int
   - consultationId : int
   - dateTime : DateTime
   - observations : String
@@ -160,6 +180,7 @@ class Consultation {
 }
 
 class MedicalProfessional {
+  - {static} nextId : int
   - professionalId : int
   - firstName : String
   - lastName : String
@@ -176,6 +197,7 @@ class MedicalProfessional {
 }
 
 class Specialty {
+  - {static} nextId : int
   - specialtyId : int
   - name : String
   - referralRequired : boolean
@@ -183,6 +205,7 @@ class Specialty {
 }
 
 class AvailabilitySlot {
+  - {static} nextId : int
   - slotId : int
   - date : Date
   - startTime : Time
@@ -196,6 +219,7 @@ class AvailabilitySlot {
 }
 
 class Appointment {
+  - {static} nextId : int
   - appointmentId : int
   - dateTime : DateTime
   - status : AppointmentStatus
@@ -207,13 +231,15 @@ class Appointment {
 }
 
 class Referral {
+  - {static} nextId : int
   - referralId : int
   - type : String
-  - description : String
+  - details : String
   - clinicalReason : String
   - priority : String
   - status : String
   - createdAt : DateTime
+  + coversSpecialty(specialty : Specialty) : boolean
 }
 
 class RecurrencePattern {
@@ -230,10 +256,12 @@ class SearchCriteria {
   - endDate : Date
   - startTime : Time
   - endTime : Time
+  + matches(slot : AvailabilitySlot) : boolean
 }
 
 
 class WaitlistEntry {
+  - {static} nextId : int
   - entryId : int
   - requestDate : Date
   - priority : int
@@ -246,10 +274,12 @@ class WaitlistEntry {
   + markOffered()
   + markBooked()
   + remove()
+  ~ markWaiting()
 }
 
 
 class WaitlistOffer {
+  - {static} nextId : int
   - offerId : int
   - offerDate : DateTime
   - outcome : OfferOutcome
@@ -266,6 +296,7 @@ class OfferResult <<dto>> {
 
 
 class Resource <<stub>> {
+  - {static} nextId : int
   - resourceId : int
   - name : String
   - type : ResourceType
@@ -289,6 +320,7 @@ AppointmentController --> AppointmentCatalog
 AppointmentController --> WaitlistCatalog
 
 AvailabilityController --> MedicalProfessionalCatalog
+AvailabilityController --> SpecialtyCatalog
 AvailabilityController --> AvailabilityImporter
 AvailabilityController --> AvailabilityExporter
 AvailabilityController ..> RecurrencePattern
@@ -311,6 +343,7 @@ WaitlistController ..> OfferResult
 AvailabilityImporter <|.. AvailabilityCsvImporter
 AvailabilityExporter <|.. AvailabilityCsvExporter
 AvailabilityCsvImporter ..> MedicalProfessionalCatalog
+AvailabilityCsvImporter ..> SpecialtyCatalog
 AvailabilityCsvExporter ..> MedicalProfessionalCatalog
 
 PatientCatalog o-- "0..*" Patient
@@ -349,14 +382,5 @@ WaitlistEntry "1" *-- "0..*" WaitlistOffer
 WaitlistOffer "0..*" --> "1" AvailabilitySlot
 
 OfferResult "1" --> "0..1" WaitlistEntry
-
-' ---- Enum usage ----
-AvailabilitySlot ..> AvailabilityStatus
-Appointment ..> AppointmentStatus
-WaitlistEntry ..> WaitlistStatus
-WaitlistOffer ..> OfferOutcome
-RecurrencePattern ..> RepeatType
-RecurrencePattern ..> DayOfWeek
-Resource ..> ResourceType
 
 @enduml

@@ -7,24 +7,24 @@ hide footbox
 title UC-02 Record Consultation: recordConsultation
 
 participant "<u>:ConsultationController</u>" as Ctrl
-participant "<u>:AppointmentBook</u>" as AB
+participant "<u>:AppointmentCatalog</u>" as AC
 collections "<u>:Appointment</u>" as As
-participant "<u>:ProfessionalCatalog</u>" as ProfC
+participant "<u>:MedicalProfessionalCatalog</u>" as ProfC
 collections "<u>:MedicalProfessional</u>" as MPs
 participant "<u>a:Appointment</u>" as Ap
 participant "<u>p:Patient</u>" as P
 participant "<u>cr:ClinicalRecord</u>" as CR
 
 [-> Ctrl : recordConsultation(appointmentId, observations,\ndiagnosis, treatments, followUp)
-Ctrl -> AB : a := getAppointment(appointmentId)
-AB -> As : a := find(appointmentId)
-As --> AB : a
-AB --> Ctrl : a
+Ctrl -> AC : a := getAppointment(appointmentId)
+AC -> As : a := find(appointmentId)
+As --> AC : a
+AC --> Ctrl : a
 Ctrl -> Ap : valid := isValidForConsultation()
 Ap --> Ctrl : valid
 Ctrl -> Ctrl : complete := validate(observations,\ndiagnosis, treatments)
-Ctrl -> ProfC : mp := getProfessional(currentUser.professionalId)
-ProfC -> MPs : mp := find(professionalId)
+Ctrl -> ProfC : mp := getProfessional(currentProfessionalId)
+ProfC -> MPs : mp := find(currentProfessionalId)
 MPs --> ProfC : mp
 ProfC --> Ctrl : mp
 alt valid and complete
@@ -33,10 +33,12 @@ alt valid and complete
   Ap -> Co : create(observations, diagnosis,\ntreatments, followUp, mp)
   Ap -> P : updateClinicalRecord(c)
   P -> CR : addEntry(c)
+  Ap -> Ap : status := COMPLETED
   Ap --> Ctrl : c
   [<-- Ctrl : consultationId
-else not valid or information missing
-  Ctrl -> Ctrl : reject("required consultation information is missing")
-  [<-- Ctrl : error
+else appointment not valid
+  [<-- Ctrl : <<exception>> Appointment is not valid for consultation
+else required information missing or invalid
+  [<-- Ctrl : <<exception>> Required consultation information is missing or invalid
 end
 @enduml

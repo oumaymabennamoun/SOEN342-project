@@ -18,5 +18,8 @@ Ss --> MP : s
 MP --> Ctrl : s
 Ctrl -> S : available := isAvailable()
 S --> Ctrl : available
+opt available
+  Ctrl -> Ctrl : selectedSlot := s
+end
 [<-- Ctrl : available
 @enduml

@@ -6,17 +6,19 @@ skinparam sequenceMessageAlign left
 hide footbox
 title UC-01 Request / Book Appointment: requestAppointment
 
+boundary "<u>:Terminal</u>" as UI
 participant "<u>:AppointmentController</u>" as Ctrl
 participant "<u>:PatientCatalog</u>" as PC
 collections "<u>:Patient</u>" as Ps
 participant "<u>p:Patient</u>" as P
-participant "<u>:ProfessionalCatalog</u>" as ProfC
+participant "<u>:MedicalProfessionalCatalog</u>" as ProfC
 collections "<u>:MedicalProfessional</u>" as MPs
 participant "<u>mp:MedicalProfessional</u>" as MP
 participant "<u>sp:Specialty</u>" as SP
 collections "<u>:AvailabilitySlot</u>" as Ss
 
-[-> Ctrl : requestAppointment(patientId, professionalId,\npreferredTime, reason)
+[-> UI : appointment request
+UI -> Ctrl : requestAppointment(patientId, professionalId,\npreferredTime, reason)
 Ctrl -> PC : p := getPatient(patientId)
 PC -> Ps : p := find(patientId)
 Ps --> PC : p
@@ -34,19 +36,29 @@ opt required
   P --> Ctrl : valid
 end
 alt not required or valid
+  Ctrl -> Ctrl : selectedProfessional := mp
   Ctrl -> MP : slots := getAvailableSlots(preferredTime)
   loop for each s in mp.slots
     MP -> Ss : available := isAvailableOn(preferredTime)
     Ss --> MP : available
   end
   MP --> Ctrl : slots
-  opt slots is empty
-    Ctrl -> MP : alternatives := getNextAvailableSlots(preferredTime)
+  Ctrl --> UI : slots
+  alt slots is empty
+    UI -> UI : showError("No available appointments")
+    UI -> Ctrl : requestAlternatives(professionalId, preferredTime)
+    Ctrl -> MP : getNextAvailableSlots(preferredTime)
     MP --> Ctrl : alternatives
+    Ctrl --> UI : alternatives
+    opt alternatives is not empty
+      UI -> UI : suggestAlternativeSlots(alternatives)
+    end
+    UI -> UI : offerWaitlist()
+  else slots is not empty
+    UI -> UI : showAvailableSlots(slots)
   end
-  [<-- Ctrl : slots / alternatives
 else referral required but not valid
-  Ctrl -> Ctrl : reject("valid referral required")
-  [<-- Ctrl : error
+  Ctrl --> UI : <<exception>> Valid referral required
+  UI -> UI : showError("Valid referral required")
 end
 @enduml

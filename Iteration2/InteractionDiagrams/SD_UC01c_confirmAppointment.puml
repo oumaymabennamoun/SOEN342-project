@@ -7,16 +7,32 @@ hide footbox
 title UC-01 Request / Book Appointment: confirmAppointment
 
 participant "<u>:AppointmentController</u>" as Ctrl
-participant "<u>:AppointmentBook</u>" as AB
+participant "<u>:PatientCatalog</u>" as PC
+participant "<u>:MedicalProfessionalCatalog</u>" as ProfC
+participant "<u>mp:MedicalProfessional</u>" as MP
+participant "<u>:AppointmentCatalog</u>" as AC
 participant "<u>s:AvailabilitySlot</u>" as S
 collections "<u>:Appointment</u>" as As
 
 [-> Ctrl : confirmAppointment(patientId, professionalId,\nslotId, reason)
-Ctrl -> AB : a := makeAppointment(p, mp, s, reason)
-create "<u>a:Appointment</u>" as Ap
-AB -> Ap : create(p, mp, s, reason)
-AB -> S : markUnavailable()
-AB -> As : add(a)
-AB --> Ctrl : a
-[<-- Ctrl : appointmentId
+Ctrl -> PC : p := getPatient(patientId)
+PC --> Ctrl : p
+Ctrl -> ProfC : mp := getProfessional(professionalId)
+ProfC --> Ctrl : mp
+Ctrl -> MP : s := getSlot(slotId)
+MP --> Ctrl : s
+Ctrl -> S : available := isAvailable()
+S --> Ctrl : available
+alt available
+  Ctrl -> AC : a := makeAppointment(p, mp, s, reason)
+  create "<u>a:Appointment</u>" as Ap
+  AC -> Ap : create(p, mp, s, reason)
+  AC -> S : markUnavailable()
+  AC -> As : add(a)
+  AC --> Ctrl : a
+  Ctrl -> Ap : confirm()
+  [<-- Ctrl : appointmentId
+else slot no longer available
+  [<-- Ctrl : <<exception>> Slot is no longer available
+end
 @enduml
