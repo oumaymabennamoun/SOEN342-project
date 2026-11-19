@@ -13,12 +13,9 @@ public final class Terminal {
     private static final MedicalProfessionalCatalog professionalCatalog = new MedicalProfessionalCatalog();
     private static final AppointmentCatalog appointmentCatalog = new AppointmentCatalog();
     private static final AppointmentController appointmentController = new AppointmentController(patientCatalog, professionalCatalog, appointmentCatalog);
-<<<<<<< HEAD
     private static final SpecialtyCatalog specialtyCatalog = new SpecialtyCatalog();
     private static final AvailabilityController availabilityController = new AvailabilityController(professionalCatalog, specialtyCatalog, new AvailabilityCsvImporter());
-=======
-    private static final AvailabilityController availabilityController = new AvailabilityController(professionalCatalog);
->>>>>>> origin/main
+
 
     public static void main(String[] args) {
 
@@ -51,11 +48,6 @@ public final class Terminal {
                 case "5":
                     exportCsv();
                     break;
-                //TO DELETE
-                case "6":
-                    viewAllAvailability();
-                    break;
-                //TO DELETE        
                 case "0":
                     System.out.println("Goodbye.");
                     input.close();
@@ -163,7 +155,7 @@ public final class Terminal {
     private static void importCsv() {
         try {
             String path = readLine("CSV file path: ");
-            int added = availabilityController.importFromCSV(path);
+            int added = availabilityController.importFrom(path);
             System.out.println("Imported " + added + " new availability slot(s). Slots that were already loaded are skipped.");
         } catch (IllegalArgumentException | IllegalStateException e) {
             showError(e.getMessage() + "\nNothing was imported.");
@@ -243,29 +235,6 @@ public final class Terminal {
     private static void showError(String message) {
         System.out.println("Error: " + message);
     }
-
-
-    //TO DELETE
-    private static void viewAllAvailability() {
-        List<MedicalProfessional> professionals = professionalCatalog.getAll();
-        if (professionals.isEmpty()) {
-            System.out.println("Nothing is loaded yet. Import availability from CSV (option 4) first.");
-            return;
-        }
-
-        int total = 0;
-        for (MedicalProfessional mp : professionals) {
-            System.out.println("[" + mp.getProfessionalId() + "] " + mp.getTitle() + " " + mp.getFirstName() + " "
-                    + mp.getLastName() + " (" + mp.getSpecialty().getName() + ")");
-            for (AvailabilitySlot s : mp.getSlots()) {
-                System.out.println("      slot " + s.getSlotId() + "  " + s.getDate() + " " + s.getStartTime() + "-"
-                        + s.getEndTime() + "  " + s.getStatus());
-                total++;
-            }
-        }
-        System.out.println(professionals.size() + " professional(s), " + total + " slot(s).");
-    }
-    //TO DELETE
 
     // Input helpers. Each one throws IllegalArgumentException with a clear message on bad input.
 
