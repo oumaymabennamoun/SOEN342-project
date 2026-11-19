@@ -11,12 +11,11 @@ public class SpecialtyCatalog {
         specialties.put(specialty.getSpecialtyId(), specialty);
     }
 
-    // Returns null if there is no specialty with that id.
     public Specialty getSpecialty(int specialtyId) {
         return specialties.get(specialtyId);
     }
 
-    // Case-insensitive match on name. Returns null if there is none.
+
     public Specialty findByName(String name) {
         if (name == null) {
             return null;
