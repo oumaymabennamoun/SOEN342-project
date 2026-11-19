@@ -1,0 +1,49 @@
+import java.util.ArrayList;
+import java.util.List;
+
+public class AvailabilityController {
+
+    private final MedicalProfessionalCatalog professionalCatalog;
+
+    public AvailabilityController(MedicalProfessionalCatalog professionalCatalog) {
+        this.professionalCatalog = professionalCatalog;
+    }
+
+    // Standalone availability search. Returns the free slots matching the criteria, earliest first.
+    public List<AvailabilitySlot> searchAvailability(SearchCriteria criteria) {
+        Integer professionalId = criteria.getProfessionalId();
+        if (professionalId != null && professionalCatalog.getProfessional(professionalId) == null) {
+            throw new IllegalArgumentException("No professional with id " + professionalId + ".");
+        }
+
+        String specialty = criteria.getSpecialty();
+        if (specialty != null && !specialtyExists(specialty)) {
+            throw new IllegalArgumentException("No professional has the specialty '" + specialty + "'.");
+        }
+
+        List<AvailabilitySlot> result = new ArrayList<>();
+        for (MedicalProfessional mp : professionalCatalog.getAll()) {
+            for (AvailabilitySlot s : mp.getSlots()) {
+                if (criteria.matches(s)) {
+                    result.add(s);
+                }
+            }
+        }
+        result.sort((a, b) -> a.getStart().compareTo(b.getStart()));
+        return result;
+    }
+
+    public List<MedicalProfessional> listProfessionals() {
+        return professionalCatalog.getAll();
+    }
+
+    // True if at least one professional has this specialty
+    private boolean specialtyExists(String specialty) {
+        for (MedicalProfessional mp : professionalCatalog.getAll()) {
+            if (mp.getSpecialty().getName().equalsIgnoreCase(specialty)) {
+                return true;
+            }
+        }
+        return false;
+    }
+}
