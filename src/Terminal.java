@@ -4,6 +4,8 @@ import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Scanner;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 public final class Terminal {
 
@@ -14,7 +16,8 @@ public final class Terminal {
     private static final AppointmentCatalog appointmentCatalog = new AppointmentCatalog();
     private static final AppointmentController appointmentController = new AppointmentController(patientCatalog, professionalCatalog, appointmentCatalog);
     private static final SpecialtyCatalog specialtyCatalog = new SpecialtyCatalog();
-    private static final AvailabilityController availabilityController = new AvailabilityController(professionalCatalog, specialtyCatalog, new AvailabilityCsvImporter());
+    private static final AvailabilityController availabilityController = new AvailabilityController(professionalCatalog, specialtyCatalog, new AvailabilityCsvImporter(),new AvailabilityCsvExporter() {
+    });
 
 
     public static void main(String[] args) {
@@ -163,7 +166,25 @@ public final class Terminal {
     }
 
     private static void exportCsv() {
-        System.out.println("CSV export is not implemented yet (issue #11). No data changed.");
+        try {
+            String path = readLine("Destination file path: ");
+            if (!path.isEmpty() && Files.isRegularFile(Path.of(path))) {
+                String answer = readLine("'" + path + "' already exists. Overwrite? (y/n): ");
+                if (!answer.equalsIgnoreCase("y")) {
+                    System.out.println("Export cancelled. Nothing was written.");
+                    return;
+                }
+            }
+
+            int count = availabilityController.exportToCSV(path);
+            if (count == 0) {
+                System.out.println("No availability is loaded. Wrote " + path + " with only the header row.");
+            } else {
+                System.out.println("Exported " + count + " slot(s) to " + path + ". Booked slots are marked BOOKED.");
+            }
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            showError(e.getMessage() + "\nNothing was exported.");
+        }
     }
 
     
