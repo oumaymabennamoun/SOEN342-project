@@ -18,6 +18,8 @@ import java.util.Map;
 public class AvailabilityCsvImporter implements AvailabilityImporter {
 
     private static final String[] HEADER = {"First Name", "Last Name", "Title", "Specialty", "Date", "Start", "End"};
+    private static final String STATUS_HEADER = "Status";
+    private static final int STATUS_COLUMN = 7;
     private static final int MAX_ERRORS_SHOWN = 10;
 
     private static final DateTimeFormatter DATE_FORMAT =
@@ -29,7 +31,7 @@ public class AvailabilityCsvImporter implements AvailabilityImporter {
     }
 
     private record Row(int lineNumber, String firstName, String lastName, String title, String specialty,
-                       LocalDate date, LocalTime start, LocalTime end) {
+                       LocalDate date, LocalTime start, LocalTime end, boolean booked) {
 
         String professionalKey() {
             return keyOf(firstName, lastName);
@@ -59,13 +61,13 @@ public class AvailabilityCsvImporter implements AvailabilityImporter {
             throw new IllegalArgumentException("The file is empty. It needs a header row.");
         }
 
-        checkHeader(lines.get(0));
+        boolean hasStatus = checkHeader(lines.get(0));
 
         List<Row> rows = new ArrayList<>();
         List<String> errors = new ArrayList<>();
         for (int i = 1; i < lines.size(); i++) {
             try {
-                rows.add(parseLine(lines.get(i).text(), lines.get(i).number()));
+                rows.add(parseLine(lines.get(i).text(), lines.get(i).number(), hasStatus));
             } catch (IllegalArgumentException e) {
                 errors.add(e.getMessage());
             }
@@ -105,7 +107,7 @@ public class AvailabilityCsvImporter implements AvailabilityImporter {
         }
 
         if (!physical.isEmpty() && physical.get(0).startsWith("\uFEFF")) {
-            physical.set(0, physical.get(0).substring(1)); // byte order mark
+            physical.set(0, physical.get(0).substring(1));
         }
 
         List<Line> records = new ArrayList<>();
@@ -143,7 +145,7 @@ public class AvailabilityCsvImporter implements AvailabilityImporter {
         return count;
     }
 
-    private void checkHeader(Line header) {
+    private boolean checkHeader(Line header) {
         List<String> found = splitFields(header.text(), header.number());
         boolean ok = found.size() >= HEADER.length;
         for (int i = 0; ok && i < HEADER.length; i++) {
@@ -153,10 +155,11 @@ public class AvailabilityCsvImporter implements AvailabilityImporter {
             throw new IllegalArgumentException("Invalid header. Expected the columns " + String.join(", ", HEADER)
                     + " (in that order) but found: " + String.join(", ", found));
         }
+        return found.size() > STATUS_COLUMN && found.get(STATUS_COLUMN).trim().equalsIgnoreCase(STATUS_HEADER);
     }
 
 
-    private Row parseLine(String line, int lineNumber) {
+    private Row parseLine(String line, int lineNumber, boolean hasStatus) {
         List<String> fields = splitFields(line, lineNumber);
         if (fields.size() < HEADER.length) {
             throw bad(lineNumber, "expected " + HEADER.length + " columns but found " + fields.size());
@@ -192,7 +195,17 @@ public class AvailabilityCsvImporter implements AvailabilityImporter {
             throw bad(lineNumber, "the end time must be after the start time");
         }
 
-        return new Row(lineNumber, first, last, title, specialty, date, start, end);
+        boolean booked = false;
+        if (hasStatus && fields.size() > STATUS_COLUMN) {
+            String status = fields.get(STATUS_COLUMN).trim();
+            if (status.equalsIgnoreCase(AvailabilityStatus.BOOKED.name())) {
+                booked = true;
+            } else if (!status.isEmpty() && !status.equalsIgnoreCase(AvailabilityStatus.AVAILABLE.name())) {
+                throw bad(lineNumber, "'" + status + "' is not a valid status (use AVAILABLE or BOOKED)");
+            }
+        }
+
+        return new Row(lineNumber, first, last, title, specialty, date, start, end, booked);
     }
 
     private static List<String> splitFields(String line, int lineNumber) {
@@ -243,10 +256,9 @@ public class AvailabilityCsvImporter implements AvailabilityImporter {
         }
     }
 
-
     private List<String> checkProfessionalsConsistent(List<Row> rows, MedicalProfessionalCatalog catalog) {
         List<String> errors = new ArrayList<>();
-        Map<String, String[]> expected = new HashMap<>(); 
+        Map<String, String[]> expected = new HashMap<>();
 
         for (Row row : rows) {
             String[] known = expected.get(row.professionalKey());
@@ -269,7 +281,7 @@ public class AvailabilityCsvImporter implements AvailabilityImporter {
 
     private List<String> checkNoOverlaps(List<Row> rows, MedicalProfessionalCatalog catalog) {
         List<String> errors = new ArrayList<>();
-        Map<String, List<Row>> accepted = new HashMap<>(); 
+        Map<String, List<Row>> accepted = new HashMap<>();
 
         for (Row row : rows) {
             List<Row> earlier = accepted.computeIfAbsent(row.professionalKey(), k -> new ArrayList<>());
@@ -283,7 +295,7 @@ public class AvailabilityCsvImporter implements AvailabilityImporter {
                     } else if (overlaps(s, row)) {
                         errors.add("Line " + row.lineNumber() + ": " + row.timeText() + " overlaps an existing slot of "
                                 + row.professionalName() + " (" + s.getDate() + " " + s.getStartTime() + "-" + s.getEndTime() + ")");
-                        handled = true; 
+                        handled = true;
                     }
                 }
             }
@@ -328,9 +340,13 @@ public class AvailabilityCsvImporter implements AvailabilityImporter {
             }
 
             if (hasSlot(mp, row)) {
-                continue; 
+                continue;
             }
-            if (mp.addSlot(new AvailabilitySlot(row.date(), row.start(), row.end()))) {
+            AvailabilitySlot slot = new AvailabilitySlot(row.date(), row.start(), row.end());
+            if (row.booked()) {
+                slot.markUnavailable();
+            }
+            if (mp.addSlot(slot)) {
                 added++;
             }
         }
