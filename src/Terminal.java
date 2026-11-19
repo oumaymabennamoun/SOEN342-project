@@ -1,9 +1,12 @@
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Scanner;
+import java.util.Set;
 
 public final class Terminal {
 
@@ -148,8 +151,38 @@ public final class Terminal {
         }
     }
 
+    // Making Availability: recurring slots for one professional over a date range.
+    // Each start-end range is split into 30-minute slots (MedicalProfessional.SLOT_MINUTES).
     private static void createRecurringAvailability() {
-        System.out.println("Recurring availability creation is not implemented yet (issue #9). No data changed.");
+        try {
+            List<MedicalProfessional> professionals = availabilityController.listProfessionals();
+            if (professionals.isEmpty()) {
+                showError("There are no professionals yet. Import availability from CSV (option 4) first.");
+                return;
+            }
+
+            showProfessionals(professionals);
+            int professionalId = readInt("Professional id: ");
+            if (!professionalExists(professionals, professionalId)) {
+                throw new IllegalArgumentException("No professional with id " + professionalId + ".");
+            }
+
+            LocalDate startDate = readDate("Start date (YYYY-MM-DD): ");
+            LocalDate endDate = readDate("End date (YYYY-MM-DD): ");
+            if (endDate.isBefore(startDate)) {
+                throw new IllegalArgumentException("End date " + endDate + " is before start date " + startDate + ".");
+            }
+
+            RecurrencePattern pattern = readPattern();
+            LocalTime startTime = readTime("Start time (HH:MM): ");
+            LocalTime endTime = readTime("End time (HH:MM): ");
+
+            int created = availabilityController.makeAvailability(professionalId, startDate, endDate, pattern, startTime, endTime);
+            System.out.println("Created " + created + " slots of " + MedicalProfessional.SLOT_MINUTES + " minutes. Use option 2 to see them.");
+
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            showError(e.getMessage() + " No availability was created.");
+        }
     }
 
     private static void importCsv() {
@@ -244,6 +277,54 @@ public final class Terminal {
             throw new IllegalStateException("Input ended.");
         }
         return input.nextLine().trim();
+    }
+
+    private static boolean professionalExists(List<MedicalProfessional> professionals, int professionalId) {
+        for (MedicalProfessional mp : professionals) {
+            if (mp.getProfessionalId() == professionalId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Asks for WEEKLY (with days), MONTHLY (with a day of the month) or DAILY.
+    private static RecurrencePattern readPattern() {
+        String type = readLine("Repeat (WEEKLY, MONTHLY or DAILY): ").toUpperCase();
+        switch (type) {
+            case "WEEKLY":
+                return RecurrencePattern.weekly(readDays("Days of the week (e.g. MON or MON,WED,FRI): "));
+            case "MONTHLY":
+                return RecurrencePattern.monthly(readInt("Day of the month (1-31): "));
+            case "DAILY":
+                return RecurrencePattern.daily();
+            default:
+                throw new IllegalArgumentException("Repeat must be WEEKLY, MONTHLY or DAILY.");
+        }
+    }
+
+    // Reads a comma-separated list like MON,WED or Monday,Wednesday.
+    private static Set<DayOfWeek> readDays(String prompt) {
+        String text = readLine(prompt);
+        Set<DayOfWeek> days = EnumSet.noneOf(DayOfWeek.class);
+
+        for (String part : text.split(",")) {
+            String name = part.trim().toUpperCase();
+            if (name.isEmpty()) {
+                continue;
+            }
+            DayOfWeek match = null;
+            for (DayOfWeek d : DayOfWeek.values()) {
+                if (name.length() >= 3 && d.name().startsWith(name)) {
+                    match = d;
+                }
+            }
+            if (match == null) {
+                throw new IllegalArgumentException("'" + part.trim() + "' is not a day. Use MON, TUE, WED, THU, FRI, SAT or SUN.");
+            }
+            days.add(match);
+        }
+        return days;
     }
 
     private static int readInt(String prompt) {

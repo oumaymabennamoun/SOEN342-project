@@ -1,4 +1,5 @@
-
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,6 +41,16 @@ public class AvailabilityController {
         }
         result.sort((a, b) -> a.getStart().compareTo(b.getStart()));
         return result;
+    }
+
+    // Making Availability for one professional. Returns the number of slots created.
+    // Throws if the professional does not exist or the input is invalid; nothing is created then.
+    public int makeAvailability(int professionalId, LocalDate startDate, LocalDate endDate, RecurrencePattern pattern, LocalTime startTime, LocalTime endTime) {
+        MedicalProfessional mp = professionalCatalog.getProfessional(professionalId);
+        if (mp == null) {
+            throw new IllegalArgumentException("No professional with id " + professionalId + ".");
+        }
+        return mp.makeAvailability(pattern, startDate, endDate, startTime, endTime);
     }
 
     public List<MedicalProfessional> listProfessionals() {
