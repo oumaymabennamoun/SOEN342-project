@@ -13,8 +13,12 @@ public final class Terminal {
     private static final MedicalProfessionalCatalog professionalCatalog = new MedicalProfessionalCatalog();
     private static final AppointmentCatalog appointmentCatalog = new AppointmentCatalog();
     private static final AppointmentController appointmentController = new AppointmentController(patientCatalog, professionalCatalog, appointmentCatalog);
+<<<<<<< HEAD
     private static final SpecialtyCatalog specialtyCatalog = new SpecialtyCatalog();
     private static final AvailabilityController availabilityController = new AvailabilityController(professionalCatalog, specialtyCatalog, new AvailabilityCsvImporter());
+=======
+    private static final AvailabilityController availabilityController = new AvailabilityController(professionalCatalog);
+>>>>>>> origin/main
 
     public static void main(String[] args) {
 
@@ -120,8 +124,36 @@ public final class Terminal {
         }
     }
 
+    // Search Availability (included in UC-01). Uses the same SearchCriteria rule as booking.
     private static void searchAvailability() {
-        System.out.println("Availability search is not implemented yet (issue #8). No data changed.");
+        try {
+            List<MedicalProfessional> professionals = availabilityController.listProfessionals();
+            if (professionals.isEmpty()) {
+                showError("There are no professionals yet. Import availability from CSV (option 4) first.");
+                return;
+            }
+
+            showProfessionals(professionals);
+            Integer professionalId = readOptionalInt("Professional id (blank for all): ");
+            String specialty = readLine("Specialty (blank for any): ");
+            LocalDate from = readOptionalDate("From date (YYYY-MM-DD, blank for any): ");
+            LocalDate to = readOptionalDate("To date (YYYY-MM-DD, blank for same as from date): ");
+            if (to == null) {
+                to = from;
+            }
+
+            SearchCriteria criteria = new SearchCriteria(professionalId, specialty, from, to, null, null);
+            List<AvailabilitySlot> slots = availabilityController.searchAvailability(criteria);
+
+            if (slots.isEmpty()) {
+                System.out.println("No available slots match your search.");
+            } else {
+                showAvailableSlots(slots);
+            }
+
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            showError(e.getMessage());
+        }
     }
 
     private static void createRecurringAvailability() {
@@ -188,10 +220,13 @@ public final class Terminal {
         }
     }
 
+    // Shows each slot with its professional and specialty. Used by both search and booking.
     private static void showAvailableSlots(List<AvailabilitySlot> slots) {
-        System.out.println("Available slots:");
+        System.out.println("Available slots (" + slots.size() + "):");
         for (AvailabilitySlot s : slots) {
-            System.out.println("  [" + s.getSlotId() + "] " + s.getDate() + " " + s.getStartTime() + "-" + s.getEndTime());
+            MedicalProfessional mp = s.getProfessional();
+            System.out.println("  [" + s.getSlotId() + "] " + mp.getTitle() + " " + mp.getFirstName() + " " + mp.getLastName()
+                    + " (" + mp.getSpecialty().getName() + ")  " + s.getDate() + "  " + s.getStartTime() + "-" + s.getEndTime());
         }
     }
 
@@ -254,13 +289,34 @@ public final class Terminal {
         }
     }
 
-    private static LocalDate readDate(String prompt) {
+    // Returns null if the user leaves it blank.
+    private static Integer readOptionalInt(String prompt) {
         String text = readLine(prompt);
+        if (text.isEmpty()) {
+            return null;
+        }
+        return parseInt(text);
+    }
+
+    // Returns null if the user leaves it blank.
+    private static LocalDate readOptionalDate(String prompt) {
+        String text = readLine(prompt);
+        if (text.isEmpty()) {
+            return null;
+        }
         try {
             return LocalDate.parse(text);
         } catch (DateTimeParseException e) {
             throw new IllegalArgumentException("'" + text + "' is not a valid date. Use YYYY-MM-DD.");
         }
+    }
+
+    private static LocalDate readDate(String prompt) {
+        LocalDate date = readOptionalDate(prompt);
+        if (date == null) {
+            throw new IllegalArgumentException("A date is required.");
+        }
+        return date;
     }
 
     private static LocalTime readTime(String prompt) {

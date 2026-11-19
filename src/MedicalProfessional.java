@@ -1,3 +1,4 @@
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -36,10 +37,14 @@ public class MedicalProfessional {
     }
 
     // Free slots on the preferred day, at or after the preferred time, earliest first.
+    // Uses the same SearchCriteria rule as the standalone availability search.
     public List<AvailabilitySlot> getAvailableSlots(LocalDateTime preferredTime) {
+        LocalDate day = preferredTime.toLocalDate();
+        SearchCriteria criteria = new SearchCriteria(professionalId, null, day, day, preferredTime.toLocalTime(), null);
+
         List<AvailabilitySlot> result = new ArrayList<>();
         for (AvailabilitySlot s : slots) {
-            if (s.isAvailableOn(preferredTime)) {
+            if (criteria.matches(s)) {
                 result.add(s);
             }
         }
@@ -72,6 +77,7 @@ public class MedicalProfessional {
             return false;
         }
         slots.add(slot);
+        slot.setProfessional(this);
         return true;
     }
 
