@@ -21,6 +21,10 @@ public class Appointment {
         this.reason = reason;
     }
 
+    public void confirm() {
+        status = AppointmentStatus.CONFIRMED;
+    }
+
     public int getAppointmentId() {
         return appointmentId;
     }
