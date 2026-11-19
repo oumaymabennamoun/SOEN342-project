@@ -8,15 +8,21 @@ public class AvailabilityController {
     private final MedicalProfessionalCatalog professionalCatalog;
     private final SpecialtyCatalog specialtyCatalog;
     private final AvailabilityImporter importer;
+    private final AvailabilityExporter exporter;
 
-    public AvailabilityController(MedicalProfessionalCatalog professionalCatalog, SpecialtyCatalog specialtyCatalog, AvailabilityImporter importer) {
+    public AvailabilityController(MedicalProfessionalCatalog professionalCatalog, SpecialtyCatalog specialtyCatalog, AvailabilityImporter importer,AvailabilityExporter exporter) {
         this.professionalCatalog = professionalCatalog;
         this.specialtyCatalog = specialtyCatalog;
         this.importer = importer;
+        this.exporter=exporter;
     }
 
     public int importFrom(String filePath) {
         return importer.importFrom(filePath, professionalCatalog, specialtyCatalog);
+    }
+
+    public int exportToCSV(String filePath) {
+        return exporter.exportTo(filePath, professionalCatalog);
     }
 
     // Standalone availability search. Returns the free slots matching the criteria, earliest first.
