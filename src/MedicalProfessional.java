@@ -1,5 +1,7 @@
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -7,6 +9,9 @@ import java.util.List;
 public class MedicalProfessional {
 
     private static int nextId = 1;
+
+    // Slot policy for Making Availability: each start-end range is split into slots of this length.
+    public static final int SLOT_MINUTES = 30;
 
     private final int professionalId;
     private final String firstName;
@@ -69,6 +74,61 @@ public class MedicalProfessional {
 
     private static void sortByStart(List<AvailabilitySlot> list) {
         list.sort((a, b) -> a.getStart().compareTo(b.getStart()));
+    }
+
+    // Making Availability. For every date the pattern gives inside the range, splits
+    // startTime-endTime into SLOT_MINUTES slots (e.g. 09:00-12:00 gives six 30-minute slots).
+    // All or nothing: if any new slot would overlap an existing one, no slot is created.
+    // Returns the number of slots created.
+    public int makeAvailability(RecurrencePattern pattern, LocalDate startDate, LocalDate endDate, LocalTime startTime, LocalTime endTime) {
+        if (pattern == null) {
+            throw new IllegalArgumentException("A repetition pattern is required.");
+        }
+        if (startTime == null || endTime == null) {
+            throw new IllegalArgumentException("A start time and an end time are required.");
+        }
+        if (!endTime.isAfter(startTime)) {
+            throw new IllegalArgumentException("End time " + endTime + " must be after start time " + startTime + ".");
+        }
+        long minutes = Duration.between(startTime, endTime).toMinutes();
+        if (minutes % SLOT_MINUTES != 0) {
+            throw new IllegalArgumentException("The time range " + startTime + "-" + endTime + " must divide into "
+                    + SLOT_MINUTES + "-minute slots.");
+        }
+
+        List<LocalDate> dates = pattern.generateDates(startDate, endDate);
+        if (dates.isEmpty()) {
+            throw new IllegalArgumentException("No dates between " + startDate + " and " + endDate + " match the pattern.");
+        }
+
+        // Check every new slot first, so nothing is added if there is a conflict.
+        for (LocalDate date : dates) {
+            for (LocalTime t = startTime; t.isBefore(endTime); t = t.plusMinutes(SLOT_MINUTES)) {
+                if (overlapsExisting(date, t, t.plusMinutes(SLOT_MINUTES))) {
+                    throw new IllegalArgumentException("Conflict: " + date + " " + t + "-" + t.plusMinutes(SLOT_MINUTES)
+                            + " overlaps an existing slot.");
+                }
+            }
+        }
+
+        int created = 0;
+        for (LocalDate date : dates) {
+            for (LocalTime t = startTime; t.isBefore(endTime); t = t.plusMinutes(SLOT_MINUTES)) {
+                addSlot(new AvailabilitySlot(date, t, t.plusMinutes(SLOT_MINUTES)));
+                created++;
+            }
+        }
+        return created;
+    }
+
+    // True if date start-end overlaps one of this professional's slots.
+    private boolean overlapsExisting(LocalDate date, LocalTime start, LocalTime end) {
+        for (AvailabilitySlot s : slots) {
+            if (s.getDate().equals(date) && s.getStartTime().isBefore(end) && start.isBefore(s.getEndTime())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Adds the slot unless it overlaps one this professional already has.
