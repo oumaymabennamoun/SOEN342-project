@@ -11,6 +11,7 @@ public class AvailabilitySlot {
     private final LocalTime startTime;
     private final LocalTime endTime;
     private AvailabilityStatus status;
+    private MedicalProfessional professional; // set when the slot is added to a professional
 
     public AvailabilitySlot(LocalDate date, LocalTime startTime, LocalTime endTime) {
         this.slotId = nextId++;
@@ -70,5 +71,14 @@ public class AvailabilitySlot {
 
     public AvailabilityStatus getStatus() {
         return status;
+    }
+
+    public MedicalProfessional getProfessional() {
+        return professional;
+    }
+
+    // Only MedicalProfessional.addSlot() calls this.
+    void setProfessional(MedicalProfessional professional) {
+        this.professional = professional;
     }
 }
