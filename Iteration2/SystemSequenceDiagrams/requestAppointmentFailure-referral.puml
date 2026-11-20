@@ -1,0 +1,8 @@
+@startuml SSD_RequestBook_ReferralRequired
+title Request / book appointment failure scenario (valid referral required)
+participant "Patient / Administrative Staff" as A
+participant "Appointment Tracking System" as S
+
+A -> S : requestAppointment(patientId, professionalId, preferredTime, reason)
+S --> A : showError("Valid referral required")
+@enduml
