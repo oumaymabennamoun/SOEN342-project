@@ -1,0 +1,7 @@
+First Name,Last Name,Title,Specialty,Date,Start,End,Notes
+Élodie,Martin-Côté,Dr.,"Cardiology, Adult",2026-11-09,9:00,09:30,quoted comma and 9:00 accepted
+Élodie,Martin-Côté,Dr.,"Cardiology, Adult",2026-11-09,09:30,10:00,touches the previous slot - allowed
+Élodie,Martin-Côté,Dr.,"Cardiology, Adult",2026-11-09,09:30,10:00,exact duplicate - skipped
+
+Zoë,"O""Brien",Nurse Practitioner,Primary Care,2026-11-10,13:00,13:45,escaped quote and a blank line above
+Marc,Bouchard,Dr.,Cardiology,2026-11-05,10:00,11:00,existing professional gets a new slot

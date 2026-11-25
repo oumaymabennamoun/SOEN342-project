@@ -1,0 +1,9 @@
+First Name,Last Name,Title,Specialty,Date,Start,End
+Good,Row,Dr.,Neurology,2026-11-12,09:00,10:00
+Bad,Date,Dr.,Neurology,2026-13-40,09:00,10:00
+Bad,Feb,Dr.,Neurology,2026-02-30,09:00,10:00
+Bad,Start,Dr.,Neurology,2026-11-12,25:00,26:00
+Bad,End,Dr.,Neurology,2026-11-12,09:00,9h
+Bad,Order,Dr.,Neurology,2026-11-12,10:00,09:00
+,NoFirstName,Dr.,Neurology,2026-11-12,09:00,10:00
+Short,Row,Dr.,Neurology,2026-11-12,09:00
